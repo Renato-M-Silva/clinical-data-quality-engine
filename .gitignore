@@ -229,5 +229,5 @@ __marimo__/
 .ipynb_checkpoints/
 
 # Data
-data/raw/*
-data/processed/*
+data/*
+
