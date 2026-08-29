@@ -11,7 +11,7 @@ class OCRIngestion:
     - ocr_extracted.json
     """
 
-    def __init__(self, base_path="data/1-bronze/ocr"):
+    def __init__(self, base_path="data/_1_bronze/ocr"):
         self.base_path = base_path
 
     def _full_path(self, filename):

@@ -3,7 +3,7 @@ import random
 import csv
 from datetime import datetime, timedelta
 
-OUTPUT_PATH = "data/1-bronze/csv/patients.csv"
+OUTPUT_PATH = "data/_1_bronze/csv/patients.csv"
 
 FIRST_NAMES = [
     "John", "Emily", "Michael", "Sarah", "David", "Laura",

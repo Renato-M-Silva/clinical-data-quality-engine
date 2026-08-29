@@ -2,11 +2,11 @@ import os
 import csv
 
 # Input CSVs from Bronze Layer
-PATIENTS_CSV = "data/1-bronze/csv/patients.csv"
-SESSIONS_CSV = "data/1-bronze/csv/sessions.csv"
+PATIENTS_CSV = "data/_1_bronze/csv/patients.csv"
+SESSIONS_CSV = "data/_1_bronze/csv/sessions.csv"
 
 # Output directory
-OUTPUT_DIR = "data/1-bronze/sql"
+OUTPUT_DIR = "data/_1_bronze/sql"
 
 
 def generate_sql_tables(output_dir=OUTPUT_DIR):

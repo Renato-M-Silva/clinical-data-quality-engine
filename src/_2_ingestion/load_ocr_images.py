@@ -11,7 +11,7 @@ class OCRImageIngestion:
     - extracted_text
     """
 
-    def __init__(self, images_path="data/1-bronze/images/ocr_reports"):
+    def __init__(self, images_path="data/_1_bronze/images/ocr_reports"):
         self.images_path = images_path
         self.reader = easyocr.Reader(["en"], gpu=False)
 

@@ -5,11 +5,11 @@ from datetime import datetime, timedelta
 import random
 
 # Input from Bronze Layer
-PATIENTS_PATH = "data/1-bronze/csv/patients.csv"
+PATIENTS_PATH = "data/_1_bronze/csv/patients.csv"
 
 # Outputs
-OUTPUT_JSON_PATH = "data/1-bronze/ocr/ocr_extracted.json"
-IMAGES_DIR = "data/1-bronze/images/ocr_reports"
+OUTPUT_JSON_PATH = "data/_1_bronze/ocr/ocr_extracted.json"
+IMAGES_DIR = "data/_1_bronze/images/ocr_reports"
 
 
 def load_patients(path=PATIENTS_PATH):

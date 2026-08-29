@@ -8,7 +8,7 @@ class CSVIngestion:
     with consistent options and basic integrity checks.
     """
 
-    def __init__(self, base_path="data/1-bronze/csv"):
+    def __init__(self, base_path="data/_1_bronze/csv"):
         self.base_path = base_path
 
     def _full_path(self, filename):

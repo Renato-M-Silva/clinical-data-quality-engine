@@ -3,9 +3,9 @@ import csv
 import random
 from datetime import datetime, timedelta
 
-PATIENTS_PATH = "data/1-bronze/csv/patients.csv"
-INJURIES_PATH = "data/1-bronze/csv/injuries.csv"
-OUTPUT_PATH = "data/1-bronze/csv/sessions.csv"
+PATIENTS_PATH = "data/_1_bronze/csv/patients.csv"
+INJURIES_PATH = "data/_1_bronze/csv/injuries.csv"
+OUTPUT_PATH = "data/_1_bronze/csv/sessions.csv"
 
 def load_patients(path=PATIENTS_PATH):
     patients = []

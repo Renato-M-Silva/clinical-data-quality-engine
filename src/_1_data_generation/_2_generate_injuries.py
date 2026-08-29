@@ -2,7 +2,7 @@ import os
 import csv
 
 # Output path inside Bronze Layer
-OUTPUT_PATH = "data/1-bronze/csv/injuries.csv"
+OUTPUT_PATH = "data/_1_bronze/csv/injuries.csv"
 
 # Synthetic physiotherapy injury profiles
 INJURIES = [

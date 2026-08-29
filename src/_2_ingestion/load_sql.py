@@ -9,7 +9,7 @@ class SQLIngestion:
     into in-memory SQLite tables, returning Pandas DataFrames.
     """
 
-    def __init__(self, sql_base_path="data/1-bronze/sql"):
+    def __init__(self, sql_base_path="data/_1_bronze/sql"):
         self.sql_base_path = sql_base_path
 
         # In-memory SQLite database
