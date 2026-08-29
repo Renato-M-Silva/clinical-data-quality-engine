@@ -24,7 +24,7 @@ def load_patients(path=PATIENTS_PATH):
 
 
 def generate_ocr_reports(output_json_path=OUTPUT_JSON_PATH, images_dir=IMAGES_DIR, n_reports=50):
-    """Generate synthetic OCR reports with placeholder PNG images."""
+    """Generate synthetic OCR reports (JSON only). Real images are generated separately."""
     os.makedirs(os.path.dirname(output_json_path), exist_ok=True)
     os.makedirs(images_dir, exist_ok=True)
 
@@ -56,13 +56,11 @@ def generate_ocr_reports(output_json_path=OUTPUT_JSON_PATH, images_dir=IMAGES_DI
             f"Notes: patient shows gradual improvement.\n"
         )
 
-        # Placeholder image file
+        # Image filename only — real image will be generated later
         image_filename = f"ocr_report_{ocr_id}.png"
-        image_path = os.path.join(images_dir, image_filename)
 
-        # Create empty placeholder PNG file
-        with open(image_path, "wb") as img_f:
-            img_f.write(b"")
+        # IMPORTANT: consistent path with forward slashes
+        image_path = f"data/_1_bronze/images/ocr_reports/{image_filename}"
 
         # JSON entry
         ocr_entries.append({
@@ -82,7 +80,7 @@ def generate_ocr_reports(output_json_path=OUTPUT_JSON_PATH, images_dir=IMAGES_DI
         json.dump(ocr_entries, f, indent=2)
 
     print(f"Generated OCR reports JSON at: {output_json_path}")
-    print(f"Generated placeholder images at: {images_dir}")
+    print(f"Image metadata prepared at: {images_dir} (real images generated separately)")
 
 
 if __name__ == "__main__":

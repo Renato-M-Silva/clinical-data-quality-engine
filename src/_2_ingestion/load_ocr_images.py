@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import easyocr
+import cv2
 
 class OCRImageIngestion:
     """
@@ -24,9 +25,14 @@ class OCRImageIngestion:
         return files
 
     def extract_text(self, filename):
-        """Run OCR on a single image."""
+        """Run OCR on a single image using OpenCV."""
         full_path = os.path.join(self.images_path, filename)
-        result = self.reader.readtext(full_path, detail=0)
+
+        img = cv2.imread(full_path)
+        if img is None:
+            raise OSError(f"Could not read image: {full_path}")
+
+        result = self.reader.readtext(img, detail=0)
         return "\n".join(result)
 
     def load(self):

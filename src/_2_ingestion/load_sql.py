@@ -39,7 +39,7 @@ class SQLIngestion:
 
         # Execute SQL script
         with self.engine.connect() as conn:
-            conn.execute(text(sql_script))
+            conn.connection.executescript(sql_script)
 
         # Infer table name from filename
         table_name = filename.replace(".sql", "")
