@@ -51,16 +51,23 @@ class RelationsValidator:
     # ---------------------------------------------------------
     def validate_temporal(self, patients_df, sessions_df):
         merged = sessions_df.merge(
-            patients_df[["patient_id", "injury_date"]],
+            patients_df[["patient_id", "start_date", "end_date"]],
             on="patient_id",
             how="left"
         )
 
-        invalid = merged[merged["session_date"] < merged["injury_date"]]
-        if len(invalid) > 0:
+        invalid_start = merged[merged["session_date"] < merged["start_date"]]
+        if len(invalid_start) > 0:
             self._add_error(
-                f"sessions.csv: {len(invalid)} sessions occur BEFORE injury_date"
+                f"sessions.csv: {len(invalid_start)} sessions occur BEFORE start_date"
             )
+
+        invalid_end = merged[merged["session_date"] > merged["end_date"]]
+        if len(invalid_end) > 0:
+            self._add_error(
+                f"sessions.csv: {len(invalid_end)} sessions occur AFTER end_date"
+            )
+
 
     # ---------------------------------------------------------
     # 5. Validate session ordering

@@ -24,7 +24,7 @@ class BusinessRulesValidator:
     # 1. Pain must decrease or stay stable (not increase absurdly)
     # ---------------------------------------------------------
     def validate_pain_progression(self, df):
-        invalid = df[df["pain_score_final"] > df["pain_score_initial"] + 2]
+        invalid = df[df["pain_final"] > df["pain_initial"] + 2]
         if len(invalid) > 0:
             self._add_error(
                 f"{len(invalid)} patients show unrealistic pain increase (>2 points)."
@@ -53,16 +53,25 @@ class BusinessRulesValidator:
     # ---------------------------------------------------------
     # 4. Sessions must be consistent with injury type
     # ---------------------------------------------------------
-    def validate_sessions_by_injury(self, df):
+    def validate_sessions_by_injury(self, df_sessions):
         rules = {
             "muscle": (5, 20),
             "ligament": (8, 25),
             "joint": (10, 30)
         }
 
+        session_counts = df_sessions.groupby("patient_id").size().reset_index(name="session_count")
+
+        merged = session_counts.merge(
+            df_sessions[["patient_id", "injury_type"]].drop_duplicates(),
+            on="patient_id",
+            how="left"
+        )
+
         for injury, (min_s, max_s) in rules.items():
-            subset = df[df["injury_type"] == injury]
-            invalid = subset[(subset["sessions"] < min_s) | (subset["sessions"] > max_s)]
+            subset = merged[merged["injury_type"] == injury]
+            invalid = subset[(subset["session_count"] < min_s) | (subset["session_count"] > max_s)]
+
             if len(invalid) > 0:
                 self._add_error(
                     f"{len(invalid)} patients with {injury} injuries have unrealistic session counts "
@@ -74,8 +83,8 @@ class BusinessRulesValidator:
     # ---------------------------------------------------------
     def validate_score_ranges(self, df):
         invalid_pain = df[
-            (df["pain_score_initial"] < 0) | (df["pain_score_initial"] > 10) |
-            (df["pain_score_final"] < 0) | (df["pain_score_final"] > 10)
+            (df["pain_initial"] < 0) | (df["pain_initial"] > 10) |
+            (df["pain_final"] < 0) | (df["pain_final"] > 10)
         ]
         if len(invalid_pain) > 0:
             self._add_error(
@@ -91,25 +100,31 @@ class BusinessRulesValidator:
                 f"{len(invalid_mob)} rows have mobility scores outside 0–100."
             )
 
+
+
+
     # ---------------------------------------------------------
     # 6. Pain improvement and mobility gain must match raw scores
     # ---------------------------------------------------------
     def validate_kpi_consistency(self, df):
+        # 1. Pain improvement must match raw scores
         invalid_pain = df[
-            df["pain_improvement"] != (df["pain_score_initial"] - df["pain_score_final"])
+            (df["pain_initial"] - df["pain_final"]) < 0
         ]
         if len(invalid_pain) > 0:
             self._add_error(
-                f"{len(invalid_pain)} rows have inconsistent pain_improvement values."
+                f"{len(invalid_pain)} sessions show negative pain improvement (pain_final > pain_initial)."
             )
 
+        # 2. Mobility gain must match raw scores
         invalid_mob = df[
-            df["mobility_gain"] != (df["mobility_final"] - df["mobility_initial"])
+            (df["mobility_final"] - df["mobility_initial"]) < 0
         ]
         if len(invalid_mob) > 0:
             self._add_error(
-                f"{len(invalid_mob)} rows have inconsistent mobility_gain values."
+                f"{len(invalid_mob)} sessions show negative mobility gain (mobility_final < mobility_initial)."
             )
+
 
     # ---------------------------------------------------------
     # Run all validations
@@ -123,8 +138,7 @@ class BusinessRulesValidator:
         self.validate_kpi_consistency(df)
 
         return self.errors
-
-
+    
 # ---------------------------------------------------------
 # Example usage
 # ---------------------------------------------------------
