@@ -101,7 +101,20 @@ def compute_entity_scores(anomalies_summary: pd.DataFrame) -> pd.DataFrame:
     """
 
     scores_rows = []
-
+    
+    # Handle case: no anomalies at all
+    if anomalies_summary is None or len(anomalies_summary) == 0:
+        return pd.DataFrame({
+            "entity_type": [],
+            "entity_id": [],
+            "dqi_score": [],
+            "dqi_label": [],
+            "anomalies_count": [],
+            "severity_score": [],
+            "severity_level": [],
+            "sources_involved": []
+        })
+    
     for _, row in anomalies_summary.iterrows():
         entity_type = row["entity_type"]
         entity_id = row["entity_id"]

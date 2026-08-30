@@ -63,6 +63,20 @@ def compute_dataset_score(entity_scores: pd.DataFrame) -> dict:
     dict
         Dataset-level DQI score report.
     """
+    
+    # Handle case: no entity scores (no anomalies in dataset)
+    if entity_scores is None or len(entity_scores) == 0:
+        return {
+            "global_score": 100.0,
+            "global_label": "Excellent",
+            "score_by_entity_type": {},
+            "severity_distribution": {},
+            "anomaly_density": 0.0,
+            "sources_reliability": {
+                "multi_source_entities": 0,
+                "percentage_multi_source": 0.0
+            }
+        }
 
     # ------------------------------------------------------------------
     # 1. Global score (mean of all entity scores)
