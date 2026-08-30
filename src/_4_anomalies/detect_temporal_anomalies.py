@@ -37,174 +37,114 @@ def _add_anomaly(anomalies, record_id, field, value, anomaly_type, description, 
 # ----------------------------------------------------------------------
 # Main function: detect temporal anomalies
 # ----------------------------------------------------------------------
-def detect_temporal_anomalies(
-    patients: pd.DataFrame,
-    injuries: pd.DataFrame,
-    sessions: pd.DataFrame,
-    clinical_reports: pd.DataFrame = None
-) -> pd.DataFrame:
-    """
-    Detects temporal anomalies between clinical datasets.
-
-    Parameters
-    ----------
-    patients : pd.DataFrame
-    injuries : pd.DataFrame
-    sessions : pd.DataFrame
-    clinical_reports : pd.DataFrame, optional
-
-    Returns
-    -------
-    pd.DataFrame
-        A DataFrame containing all detected temporal anomalies.
-    """
-
+def detect_temporal_anomalies(patients, injuries, sessions, clinical_reports=None):
     anomalies = []
 
-    # ------------------------------------------------------------------
-    # 1. Injury dates inconsistent with patient timeline
-    # ------------------------------------------------------------------
-    if "injury_date" in injuries.columns and "admission_date" in patients.columns:
-        merged = injuries.merge(patients, on="patient_id", how="left")
+    # --------------------------------------------------------------
+    # 1. Sessions before patient start_date
+    # --------------------------------------------------------------
+    merged = sessions.merge(
+        patients[["patient_id", "start_date"]],
+        on="patient_id", how="left"
+    )
 
-        invalid_injury_dates = merged[
-            (merged["injury_date"] < merged["admission_date"])
-        ]
+    invalid = merged[merged["session_date"] < merged["start_date"]]
+    for idx, row in invalid.iterrows():
+        _add_anomaly(
+            anomalies,
+            row["session_id"],
+            "session_date",
+            row["session_date"],
+            "inverted_dates",
+            "Session occurs before patient start_date."
+        )
 
-        for idx, row in invalid_injury_dates.iterrows():
+    # --------------------------------------------------------------
+    # 2. Sessions after patient end_date
+    # --------------------------------------------------------------
+    merged = sessions.merge(
+        patients[["patient_id", "end_date"]],
+        on="patient_id", how="left"
+    )
+
+    invalid = merged[merged["session_date"] > merged["end_date"]]
+    for idx, row in invalid.iterrows():
+        _add_anomaly(
+            anomalies,
+            row["session_id"],
+            "session_date",
+            row["session_date"],
+            "out_of_range",
+            "Session occurs after patient end_date."
+        )
+
+    # --------------------------------------------------------------
+    # 3. Impossible progression (pain/mobility jumps)
+    # --------------------------------------------------------------
+    s = sessions.sort_values(["patient_id", "session_date"])
+    s["pain_diff"] = s.groupby("patient_id")["pain_final"].diff()
+    s["mobility_diff"] = s.groupby("patient_id")["mobility_final"].diff()
+
+    pain_jump = s[s["pain_diff"].abs() > 5]
+    for idx, row in pain_jump.iterrows():
+        _add_anomaly(
+            anomalies,
+            row["session_id"],
+            "pain_final",
+            row["pain_final"],
+            "impossible_progression",
+            "Pain jump > 5 between sessions."
+        )
+
+    mob_jump = s[s["mobility_diff"].abs() > 30]
+    for idx, row in mob_jump.iterrows():
+        _add_anomaly(
+            anomalies,
+            row["session_id"],
+            "mobility_final",
+            row["mobility_final"],
+            "impossible_progression",
+            "Mobility jump > 30 between sessions."
+        )
+
+    # --------------------------------------------------------------
+    # 4. Clinical report before patient start_date
+    # --------------------------------------------------------------
+    if clinical_reports is not None:
+        merged = clinical_reports.merge(
+            patients[["patient_id", "start_date"]],
+            on="patient_id", how="left"
+        )
+
+        invalid = merged[merged["report_date"] < merged["start_date"]]
+        for idx, row in invalid.iterrows():
             _add_anomaly(
                 anomalies,
-                record_id=row["injury_id"],
-                field="injury_date",
-                value=row["injury_date"],
-                anomaly_type="inverted_dates",
-                description="Injury date occurs before patient admission date.",
-                severity="high"
+                row["report_id"],
+                "report_date",
+                row["report_date"],
+                "inverted_dates",
+                "Clinical report occurs before patient start_date."
             )
 
-    # ------------------------------------------------------------------
-    # 2. Sessions occurring before injury date or after discharge
-    # ------------------------------------------------------------------
-    if "session_date" in sessions.columns:
-        merged = sessions.merge(injuries, on="injury_id", how="left")
+    # --------------------------------------------------------------
+    # 5. Clinical report after patient end_date
+    # --------------------------------------------------------------
+    if clinical_reports is not None:
+        merged = clinical_reports.merge(
+            patients[["patient_id", "end_date"]],
+            on="patient_id", how="left"
+        )
 
-        # Before injury
-        invalid_before_injury = merged[
-            (merged["session_date"] < merged["injury_date"])
-        ]
-
-        for idx, row in invalid_before_injury.iterrows():
+        invalid = merged[merged["report_date"] > merged["end_date"]]
+        for idx, row in invalid.iterrows():
             _add_anomaly(
                 anomalies,
-                record_id=row["session_id"],
-                field="session_date",
-                value=row["session_date"],
-                anomaly_type="inverted_dates",
-                description="Session occurs before injury date.",
-                severity="high"
+                row["report_id"],
+                "report_date",
+                row["report_date"],
+                "out_of_range",
+                "Clinical report occurs after patient end_date."
             )
 
-        # After discharge (if available)
-        if "discharge_date" in injuries.columns:
-            invalid_after_discharge = merged[
-                (merged["session_date"] > merged["discharge_date"])
-            ]
-
-            for idx, row in invalid_after_discharge.iterrows():
-                _add_anomaly(
-                    anomalies,
-                    record_id=row["session_id"],
-                    field="session_date",
-                    value=row["session_date"],
-                    anomaly_type="out_of_range",
-                    description="Session occurs after discharge date.",
-                    severity="medium"
-                )
-
-    # ------------------------------------------------------------------
-    # 3. Sessions out of chronological order
-    # ------------------------------------------------------------------
-    if "session_date" in sessions.columns:
-        sorted_sessions = sessions.sort_values(["patient_id", "session_date"])
-
-        duplicated_timestamps = sorted_sessions[
-            sorted_sessions.duplicated(subset=["patient_id", "session_date"], keep=False)
-        ]
-
-        for idx, row in duplicated_timestamps.iterrows():
-            _add_anomaly(
-                anomalies,
-                record_id=row["session_id"],
-                field="session_date",
-                value=row["session_date"],
-                anomaly_type="duplicate_timestamp",
-                description="Multiple sessions share the same timestamp for the same patient.",
-                severity="low"
-            )
-
-    # ------------------------------------------------------------------
-    # 4. Impossible clinical progression (pain/mobility jumps)
-    # ------------------------------------------------------------------
-    if "session_date" in sessions.columns:
-        sessions_sorted = sessions.sort_values(["patient_id", "session_date"])
-
-        sessions_sorted["pain_diff"] = sessions_sorted.groupby("patient_id")["pain_level"].diff()
-        sessions_sorted["mobility_diff"] = sessions_sorted.groupby("patient_id")["mobility_score"].diff()
-
-        # Pain jumps > 5 points in one day
-        impossible_pain = sessions_sorted[
-            (sessions_sorted["pain_diff"].abs() > 5)
-        ]
-
-        for idx, row in impossible_pain.iterrows():
-            _add_anomaly(
-                anomalies,
-                record_id=row["session_id"],
-                field="pain_level",
-                value=row["pain_level"],
-                anomaly_type="impossible_progression",
-                description="Pain level changes more than 5 points between consecutive sessions.",
-                severity="medium"
-            )
-
-        # Mobility jumps > 30 points in one day
-        impossible_mobility = sessions_sorted[
-            (sessions_sorted["mobility_diff"].abs() > 30)
-        ]
-
-        for idx, row in impossible_mobility.iterrows():
-            _add_anomaly(
-                anomalies,
-                record_id=row["session_id"],
-                field="mobility_score",
-                value=row["mobility_score"],
-                anomaly_type="impossible_progression",
-                description="Mobility score changes more than 30 points between consecutive sessions.",
-                severity="medium"
-            )
-
-    # ------------------------------------------------------------------
-    # 5. Clinical reports with inconsistent dates
-    # ------------------------------------------------------------------
-    if clinical_reports is not None and "report_date" in clinical_reports.columns:
-        merged = clinical_reports.merge(sessions, on="session_id", how="left")
-
-        invalid_reports = merged[
-            (merged["report_date"] < merged["session_date"])
-        ]
-
-        for idx, row in invalid_reports.iterrows():
-            _add_anomaly(
-                anomalies,
-                record_id=row.get("report_id", idx),
-                field="report_date",
-                value=row["report_date"],
-                anomaly_type="inverted_dates",
-                description="Clinical report date occurs before the session date.",
-                severity="high"
-            )
-
-    # ------------------------------------------------------------------
-    # Return anomalies as DataFrame
-    # ------------------------------------------------------------------
     return pd.DataFrame(anomalies)
