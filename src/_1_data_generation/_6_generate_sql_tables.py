@@ -36,7 +36,7 @@ def generate_sql_tables(output_dir=OUTPUT_DIR):
     with open(patients_sql_path, mode="w", encoding="utf-8") as f_sql:
         f_sql.write("-- Synthetic Patients Table (with anomalies)\n")
         f_sql.write("CREATE TABLE patients (\n")
-        f_sql.write("  patient_id INT PRIMARY KEY,\n")
+        f_sql.write("  patient_id INT,\n")
         f_sql.write("  first_name VARCHAR(50),\n")
         f_sql.write("  last_name VARCHAR(50),\n")
         f_sql.write("  age INT,\n")
@@ -125,7 +125,7 @@ def generate_sql_tables(output_dir=OUTPUT_DIR):
     with open(injuries_sql_path, mode="w", encoding="utf-8") as f_sql:
         f_sql.write("-- Synthetic Injuries Table (with anomalies)\n")
         f_sql.write("CREATE TABLE injuries (\n")
-        f_sql.write("  injury_id INT PRIMARY KEY,\n")
+        f_sql.write("  injury_id INT,\n")
         f_sql.write("  patient_id INT,\n")
         f_sql.write("  injury_type VARCHAR(100),\n")
         f_sql.write("  diagnosis_code VARCHAR(20),\n")
@@ -194,7 +194,7 @@ def generate_sql_tables(output_dir=OUTPUT_DIR):
     with open(sessions_sql_path, mode="w", encoding="utf-8") as f_sql:
         f_sql.write("-- Synthetic Sessions Table (with anomalies)\n")
         f_sql.write("CREATE TABLE sessions (\n")
-        f_sql.write("  session_id INT PRIMARY KEY,\n")
+        f_sql.write("  session_id INT,\n")
         f_sql.write("  patient_id INT,\n")
         f_sql.write("  injury_id INT,\n")
         f_sql.write("  injury_type VARCHAR(100),\n")
