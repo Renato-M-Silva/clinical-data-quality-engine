@@ -7,32 +7,34 @@ PATIENTS_PATH = "data/_1_bronze/csv/patients.csv"
 INJURIES_PATH = "data/_1_bronze/csv/injuries.csv"
 OUTPUT_PATH = "data/_1_bronze/csv/sessions.csv"
 
-def load_patients(path=PATIENTS_PATH):
-    patients = []
-    with open(path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            row["start_date"] = datetime.strptime(row["start_date"], "%Y-%m-%d")
-            row["end_date"] = datetime.strptime(row["end_date"], "%Y-%m-%d")
-            patients.append(row)
-    return patients
-
-def load_injuries(path=INJURIES_PATH):
-    injuries = {}
-    with open(path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            injuries[row["injury_type"]] = {
-                "typical_recovery_days": int(row["typical_recovery_days"]),
-                "typical_sessions": int(row["typical_sessions"]),
-                "typical_pain_initial": int(row["typical_pain_initial"]),
-                "typical_mobility_initial": int(row["typical_mobility_initial"]),
-            }
-    return injuries
-
+ANOMALY_RATE = 0.10  # 10% of sessions will contain anomalies
 THERAPISTS = [101, 102, 103, 104, 105]
 
+
+def load_patients(path=PATIENTS_PATH):
+    """Load patients into a dictionary keyed by patient_id."""
+    patients = {}
+    with open(path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            patients[int(row["patient_id"])] = row
+    return patients
+
+
+def load_injuries(path=INJURIES_PATH):
+    """Load injuries from CSV."""
+    injuries = []
+    with open(path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            row["injury_date"] = datetime.strptime(row["injury_date"], "%Y-%m-%d")
+            row["typical_recovery_days"] = int(row["typical_recovery_days"])
+            injuries.append(row)
+    return injuries
+
+
 def generate_sessions(output_path=OUTPUT_PATH):
+    """Generate physiotherapy sessions for every injury."""
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     patients = load_patients()
@@ -43,9 +45,10 @@ def generate_sessions(output_path=OUTPUT_PATH):
         writer.writerow([
             "session_id",
             "patient_id",
+            "injury_id",
+            "injury_type",
             "session_date",
             "session_number",
-            "injury_type",
             "pain_initial",
             "pain_final",
             "mobility_initial",
@@ -57,31 +60,29 @@ def generate_sessions(output_path=OUTPUT_PATH):
 
         session_id = 1
 
-        for p in patients:
-            patient_id = int(p["patient_id"])
-            injury_type = p["injury_type"]
-            start_date = p["start_date"]
-            end_date = p["end_date"]
-            total_days = (end_date - start_date).days
+        for inj in injuries:
+            patient_id = int(inj["patient_id"])
+            injury_id = int(inj["injury_id"])
+            injury_type = inj["injury_type"]
+            start_date = inj["injury_date"]
+            typical_days = inj["typical_recovery_days"]
 
-            injury_info = injuries.get(injury_type, None)
-
-            if injury_info:
-                typical_sessions = injury_info["typical_sessions"]
-                base_pain = injury_info["typical_pain_initial"]
-                base_mobility = injury_info["typical_mobility_initial"]
-            else:
-                typical_sessions = random.randint(8, 24)
-                base_pain = random.randint(4, 8)
-                base_mobility = random.randint(20, 60)
-
+            # Number of sessions for this injury
+            typical_sessions = random.randint(10, 24)
             n_sessions = int(typical_sessions * random.uniform(0.7, 1.3))
             n_sessions = max(n_sessions, 4)
 
+            # Clinical baseline
+            base_pain = random.randint(5, 8)
+            base_mobility = random.randint(20, 50)
+
             for session_number in range(1, n_sessions + 1):
                 frac = session_number / n_sessions
-                session_date = start_date + timedelta(days=int(total_days * frac))
 
+                # Session date progression
+                session_date = start_date + timedelta(days=int(typical_days * frac))
+
+                # Clinical progression
                 pain_initial = max(0, min(10, int(base_pain * (1 - 0.5 * frac) + random.uniform(-1, 1))))
                 pain_final = max(0, min(10, pain_initial - random.randint(0, 2)))
 
@@ -93,12 +94,60 @@ def generate_sessions(output_path=OUTPUT_PATH):
 
                 recovery_days = (session_date - start_date).days
 
+                # ------------------------------------------------------
+                # ANOMALIES (10%)
+                # ------------------------------------------------------
+                if random.random() < ANOMALY_RATE:
+                    anomaly = random.choice([
+                        "session_before_injury",
+                        "pain_out_of_range",
+                        "mobility_out_of_range",
+                        "negative_recovery_days",
+                        "future_session_date",
+                        "wrong_therapist",
+                        "pain_increases",
+                        "mobility_decreases",
+                        "missing_injury_type",
+                        "invalid_session_number"
+                    ])
+
+                    if anomaly == "session_before_injury":
+                        session_date = start_date - timedelta(days=random.randint(1, 20))
+
+                    elif anomaly == "pain_out_of_range":
+                        pain_initial = random.randint(11, 20)
+
+                    elif anomaly == "mobility_out_of_range":
+                        mobility_initial = random.randint(101, 200)
+
+                    elif anomaly == "negative_recovery_days":
+                        recovery_days = -abs(recovery_days)
+
+                    elif anomaly == "future_session_date":
+                        session_date = datetime.now() + timedelta(days=random.randint(30, 400))
+
+                    elif anomaly == "wrong_therapist":
+                        therapist_id = random.randint(999, 1200)
+
+                    elif anomaly == "pain_increases":
+                        pain_final = pain_initial + random.randint(1, 4)
+
+                    elif anomaly == "mobility_decreases":
+                        mobility_final = max(0, mobility_initial - random.randint(5, 20))
+
+                    elif anomaly == "missing_injury_type":
+                        injury_type = ""
+
+                    elif anomaly == "invalid_session_number":
+                        session_number = random.choice([-3, 0, 999])
+
                 writer.writerow([
                     session_id,
                     patient_id,
+                    injury_id,
+                    injury_type,
                     session_date.strftime("%Y-%m-%d"),
                     session_number,
-                    injury_type,
                     pain_initial,
                     pain_final,
                     mobility_initial,
@@ -110,7 +159,7 @@ def generate_sessions(output_path=OUTPUT_PATH):
 
                 session_id += 1
 
-    print(f"Generated sessions dataset at: {output_path}")
+    print(f"Generated sessions dataset with multiple injuries at: {output_path}")
 
 
 if __name__ == "__main__":
