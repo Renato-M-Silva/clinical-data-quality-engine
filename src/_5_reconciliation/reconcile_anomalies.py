@@ -65,6 +65,23 @@ def reconcile_anomalies(
         source_anomalies.assign(source="source")
     ], ignore_index=True)
 
+    # Ensure record_id exists for all anomaly sources
+    if "record_id" not in all_anomalies.columns:
+        all_anomalies["record_id"] = None
+
+    # Fill missing record_id using fallback logic
+    all_anomalies["record_id"] = all_anomalies.apply(
+        lambda row: (
+            row.get("record_id")
+            or row.get("session_id")
+            or row.get("ocr_id")
+            or row.get("report_id")
+            or row.get("patient_id")
+            or "UNKNOWN"
+        ),
+        axis=1
+    )
+
     # Determine entity type based on record_id patterns
     def infer_entity_type(record_id):
         if isinstance(record_id, str) and record_id.startswith("P"):

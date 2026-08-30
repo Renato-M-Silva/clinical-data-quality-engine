@@ -72,8 +72,13 @@ def run_reconciliation_pipeline(
     # ------------------------------------------------------------------
     value_anomalies = detect_value_anomalies(sessions)
     relational_anomalies = detect_relational_anomalies(
-        patients, injuries, sessions, clinical_json, ocr_text, sql_data
+        patients,
+        injuries,
+        sessions,
+        clinical_reports=None,
+        ocr_reports=None
     )
+
     temporal_anomalies = detect_temporal_anomalies(
         patients, injuries, sessions, clinical_json
     )
@@ -91,11 +96,24 @@ def run_reconciliation_pipeline(
     # ------------------------------------------------------------------
     # 2. Consolidate anomalies (Module 5)
     # ------------------------------------------------------------------
+    # Normalize source anomalies to include record_id
+    if "record_id" not in source_anomalies.columns:
+        source_anomalies["record_id"] = source_anomalies.apply(
+            lambda row: (
+                row.get("session_id")
+                or row.get("ocr_id")
+                or row.get("report_id")
+                or row.get("patient_id")
+                or "SRC_UNKNOWN"
+            ),
+            axis=1
+        )
+
     anomalies_summary = reconcile_anomalies(
-        value_anomalies,
-        relational_anomalies,
-        temporal_anomalies,
-        source_anomalies
+        value_anomalies=value_anomalies,
+        relational_anomalies=relational_anomalies,
+        temporal_anomalies=temporal_anomalies,
+        source_anomalies=source_anomalies
     )
 
     print(f"  - Entities with anomalies: {len(anomalies_summary)}")
@@ -106,11 +124,11 @@ def run_reconciliation_pipeline(
     # 3. Reconcile entities (Module 5)
     # ------------------------------------------------------------------
     entities_reconciliation = reconcile_entities(
-        csv_data,
-        sql_data,
-        ocr_text,
-        clinical_json,
-        ocr_images
+        csv_data=csv_data,
+        sql_data=sql_data,
+        ocr_text=ocr_text,
+        clinical_json=clinical_json,
+        ocr_images=ocr_images
     )
 
     print(f"  - Reconciled fields: {len(entities_reconciliation)}")

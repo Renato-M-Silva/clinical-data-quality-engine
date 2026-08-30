@@ -19,6 +19,7 @@ Output:
 """
 
 import pandas as pd
+from sqlalchemy import values
 
 
 # ----------------------------------------------------------------------
@@ -57,6 +58,7 @@ def reconcile_entities(
     clinical_json: pd.DataFrame = None,
     ocr_images: pd.DataFrame = None
 ) -> pd.DataFrame:
+
     """
     Reconciles entities across multiple sources.
 
@@ -79,66 +81,58 @@ def reconcile_entities(
     # ------------------------------------------------------------------
     # Identify all unique sessions across sources
     # ------------------------------------------------------------------
-    all_session_ids = set(csv_data["session_id"]) \
-        | set(sql_data["session_id"]) \
-        | set(ocr_text["session_id"])
+    all_patient_ids = (
+        set(csv_data["patient_id"])
+        | set(sql_data["patient_id"])
+        | set(ocr_text["patient_id"])
+    )
 
-    if clinical_json is not None and "session_id" in clinical_json.columns:
-        all_session_ids |= set(clinical_json["session_id"])
+    if clinical_json is not None:
+        all_patient_ids |= set(clinical_json["patient_id"])
 
-    if ocr_images is not None and "session_id" in ocr_images.columns:
-        all_session_ids |= set(ocr_images["session_id"])
+    if ocr_images is not None and "patient_id" in ocr_images.columns:
+        all_patient_ids |= set(ocr_images["patient_id"])
 
     # ------------------------------------------------------------------
-    # Reconcile each session
+    # Reconcile each patient entity
     # ------------------------------------------------------------------
-    for session_id in sorted(all_session_ids):
+    for pid in sorted(all_patient_ids):
 
         # Collect values from each source
         values = {}
 
-        # CSV
-        if session_id in csv_data["session_id"].values:
-            row = csv_data[csv_data["session_id"] == session_id].iloc[0]
-            values["csv"] = row.to_dict()
+        # CSV / SQL (sessions)
+        if pid in csv_data["patient_id"].values:
+            values["csv"] = csv_data[csv_data["patient_id"] == pid].iloc[0].to_dict()
 
-        # SQL
-        if session_id in sql_data["session_id"].values:
-            row = sql_data[sql_data["session_id"] == session_id].iloc[0]
-            values["sql"] = row.to_dict()
+        if pid in sql_data["patient_id"].values:
+            values["sql"] = sql_data[sql_data["patient_id"] == pid].iloc[0].to_dict()
 
         # OCR text
-        if session_id in ocr_text["session_id"].values:
-            row = ocr_text[ocr_text["session_id"] == session_id].iloc[0]
-            values["ocr_text"] = row.to_dict()
+        if pid in ocr_text["patient_id"].values:
+            values["ocr_text"] = ocr_text[ocr_text["patient_id"] == pid].iloc[0].to_dict()
 
         # Clinical JSON
-        if clinical_json is not None and session_id in clinical_json["session_id"].values:
-            row = clinical_json[clinical_json["session_id"] == session_id].iloc[0]
-            values["json"] = row.to_dict()
+        if clinical_json is not None and pid in clinical_json["patient_id"].values:
+            values["json"] = clinical_json[clinical_json["patient_id"] == pid].iloc[0].to_dict()
 
         # OCR images
-        if ocr_images is not None and session_id in ocr_images["session_id"].values:
-            row = ocr_images[ocr_images["session_id"] == session_id].iloc[0]
-            values["ocr_image"] = row.to_dict()
+        if ocr_images is not None and "patient_id" in ocr_images.columns:
+            if pid in ocr_images["patient_id"].values:
+                values["ocr_image"] = ocr_images[ocr_images["patient_id"] == pid].iloc[0].to_dict()
 
         # ------------------------------------------------------------------
         # Reconcile each field
         # ------------------------------------------------------------------
         all_fields = set()
-        for source_dict in values.values():
-            all_fields |= set(source_dict.keys())
+        for src_dict in values.values():
+            all_fields |= set(src_dict.keys())
 
         for field in sorted(all_fields):
 
-            source_values = {
-                src: src_dict.get(field)
-                for src, src_dict in values.items()
-            }
-
+            source_values = {src: src_dict.get(field) for src, src_dict in values.items()}
             chosen_value = _choose_value(source_values)
 
-            # Determine reconciliation status
             unique_values = {v for v in source_values.values() if pd.notna(v)}
 
             if len(unique_values) <= 1:
@@ -148,15 +142,15 @@ def reconcile_entities(
             elif chosen_value is None:
                 status = "unresolved"
                 severity = "high"
-                notes = "Conflicting values across sources; no authoritative source."
+                notes = "Conflicting values; no authoritative source."
             else:
                 status = "resolved"
                 severity = "medium"
-                notes = f"Conflict resolved using authoritative source."
+                notes = "Conflict resolved using authoritative source."
 
             reconciliation_rows.append({
-                "entity_type": "session",
-                "entity_id": session_id,
+                "entity_type": "patient",
+                "entity_id": pid,
                 "field": field,
                 "source_values": source_values,
                 "chosen_value": chosen_value,
