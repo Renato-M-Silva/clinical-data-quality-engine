@@ -44,20 +44,23 @@ def reconcile_anomalies(
     """
     Consolidates anomalies from all detectors into a unified reconciliation summary.
 
-    Parameters
-    ----------
-    value_anomalies : pd.DataFrame
-    relational_anomalies : pd.DataFrame
-    temporal_anomalies : pd.DataFrame
-    source_anomalies : pd.DataFrame
+    All anomaly detectors must provide:
+        - entity_type
+        - entity_id
+        - record_id
+        - field
+        - value
+        - anomaly_type
+        - description
+        - severity
 
-    Returns
-    -------
-    pd.DataFrame
-        Consolidated anomaly reconciliation summary.
+    This module no longer infers entity_type from record_id.
+    Instead, it relies entirely on the detectors' explicit entity_type/entity_id.
     """
 
-    # Combine all anomalies into a single DataFrame
+    # --------------------------------------------------------------
+    # 1. Combine all anomalies into a single DataFrame
+    # --------------------------------------------------------------
     all_anomalies = pd.concat([
         value_anomalies.assign(source="value"),
         relational_anomalies.assign(source="relational"),
@@ -65,40 +68,26 @@ def reconcile_anomalies(
         source_anomalies.assign(source="source")
     ], ignore_index=True)
 
-    # Ensure record_id exists for all anomaly sources
-    if "record_id" not in all_anomalies.columns:
-        all_anomalies["record_id"] = None
+    # --------------------------------------------------------------
+    # 2. Ensure entity_type and entity_id exist
+    # --------------------------------------------------------------
+    if "entity_type" not in all_anomalies.columns:
+        all_anomalies["entity_type"] = "unknown"
 
-    # Fill missing record_id using fallback logic
-    all_anomalies["record_id"] = all_anomalies.apply(
-        lambda row: (
-            row.get("record_id")
-            or row.get("session_id")
-            or row.get("ocr_id")
-            or row.get("report_id")
-            or row.get("patient_id")
-            or "UNKNOWN"
-        ),
-        axis=1
-    )
+    if "entity_id" not in all_anomalies.columns:
+        # fallback: use record_id if entity_id missing
+        all_anomalies["entity_id"] = all_anomalies["record_id"]
 
-    # Determine entity type based on record_id patterns
-    def infer_entity_type(record_id):
-        if isinstance(record_id, str) and record_id.startswith("P"):
-            return "patient"
-        if isinstance(record_id, str) and record_id.startswith("I"):
-            return "injury"
-        if isinstance(record_id, str) and record_id.startswith("S"):
-            return "session"
-        return "unknown"
-
-    all_anomalies["entity_type"] = all_anomalies["record_id"].apply(infer_entity_type)
-
-    # Group anomalies by entity
-    grouped = all_anomalies.groupby(["entity_type", "record_id"])
+    # --------------------------------------------------------------
+    # 3. Group anomalies by entity_type + entity_id
+    # --------------------------------------------------------------
+    grouped = all_anomalies.groupby(["entity_type", "entity_id"])
 
     reconciliation_rows = []
 
+    # --------------------------------------------------------------
+    # 4. Build reconciliation summary per entity
+    # --------------------------------------------------------------
     for (entity_type, entity_id), group in grouped:
 
         anomaly_types = sorted(group["anomaly_type"].unique())

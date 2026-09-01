@@ -9,6 +9,8 @@ inconsistencies between patients, injuries, sessions, and clinical reports.
 Output:
     A DataFrame containing all detected anomalies with:
         - record_id
+        - entity_type
+        - entity_id
         - field
         - value
         - anomaly_type
@@ -18,12 +20,39 @@ Output:
 
 import pandas as pd
 
+
 # ----------------------------------------------------------------------
 # Helper: register anomaly
 # ----------------------------------------------------------------------
-def _add_anomaly(anomalies, record_id, field, value, anomaly_type, description, severity="high"):
+def _add_anomaly(
+    anomalies,
+    record_id,
+    entity_type,
+    entity_id,
+    field,
+    value,
+    anomaly_type,
+    description,
+    severity="high"
+):
+    """
+    Registers a relational anomaly entry.
+
+    Parameters
+    ----------
+    record_id : identifier of the record where the anomaly occurred
+    entity_type : clinical entity type (session, patient, injury, report, ocr_report)
+    entity_id : identifier of the affected entity
+    field : field where the anomaly was detected
+    value : problematic value
+    anomaly_type : category of anomaly
+    description : human-readable explanation
+    severity : low / medium / high
+    """
     anomalies.append({
         "record_id": record_id,
+        "entity_type": entity_type,
+        "entity_id": entity_id,
         "field": field,
         "value": value,
         "anomaly_type": anomaly_type,
@@ -52,11 +81,13 @@ def detect_relational_anomalies(
     for idx, row in missing.iterrows():
         _add_anomaly(
             anomalies,
-            row["session_id"],
-            "patient_id",
-            row["patient_id"],
-            "missing_reference",
-            "Session references non-existent patient."
+            record_id=row["session_id"],
+            entity_type="session",
+            entity_id=row["session_id"],
+            field="patient_id",
+            value=row["patient_id"],
+            anomaly_type="missing_reference",
+            description="Session references non-existent patient."
         )
 
     # --------------------------------------------------------------
@@ -66,11 +97,13 @@ def detect_relational_anomalies(
     for idx, row in missing.iterrows():
         _add_anomaly(
             anomalies,
-            row["session_id"],
-            "injury_type",
-            row["injury_type"],
-            "missing_reference",
-            "Session references non-existent injury_type."
+            record_id=row["session_id"],
+            entity_type="session",
+            entity_id=row["session_id"],
+            field="injury_type",
+            value=row["injury_type"],
+            anomaly_type="missing_reference",
+            description="Session references non-existent injury_type."
         )
 
     # --------------------------------------------------------------
@@ -81,11 +114,13 @@ def detect_relational_anomalies(
         for idx, row in missing.iterrows():
             _add_anomaly(
                 anomalies,
-                row["report_id"],
-                "patient_id",
-                row["patient_id"],
-                "missing_reference",
-                "Clinical report references non-existent patient."
+                record_id=row["report_id"],
+                entity_type="report",
+                entity_id=row["report_id"],
+                field="patient_id",
+                value=row["patient_id"],
+                anomaly_type="missing_reference",
+                description="Clinical report references non-existent patient."
             )
 
     # --------------------------------------------------------------
@@ -96,33 +131,37 @@ def detect_relational_anomalies(
         for idx, row in missing.iterrows():
             _add_anomaly(
                 anomalies,
-                row["ocr_id"],
-                "patient_id",
-                row["patient_id"],
-                "missing_reference",
-                "OCR report references non-existent patient."
+                record_id=row["ocr_id"],
+                entity_type="ocr_report",
+                entity_id=row["ocr_id"],
+                field="patient_id",
+                value=row["patient_id"],
+                anomaly_type="missing_reference",
+                description="OCR report references non-existent patient."
             )
 
     # --------------------------------------------------------------
     # 5. Duplicate primary keys
     # --------------------------------------------------------------
-    for df, key, label in [
-        (patients, "patient_id", "patient"),
-        (injuries, "injury_type", "injury_type"),
-        (sessions, "session_id", "session"),
-        (clinical_reports, "report_id", "clinical_report"),
-        (ocr_reports, "ocr_id", "ocr_report")
+    for df, key, label, entity_type in [
+        (patients, "patient_id", "patient", "patient"),
+        (injuries, "injury_type", "injury_type", "injury"),
+        (sessions, "session_id", "session", "session"),
+        (clinical_reports, "report_id", "clinical_report", "report"),
+        (ocr_reports, "ocr_id", "ocr_report", "ocr_report")
     ]:
         if df is not None and key in df.columns:
             dup = df[df[key].duplicated(keep=False)]
             for idx, row in dup.iterrows():
                 _add_anomaly(
                     anomalies,
-                    row[key],
-                    key,
-                    row[key],
-                    "duplicate_key",
-                    f"Duplicate {label} ID detected.",
+                    record_id=row[key],
+                    entity_type=entity_type,
+                    entity_id=row[key],
+                    field=key,
+                    value=row[key],
+                    anomaly_type="duplicate_key",
+                    description=f"Duplicate {label} ID detected.",
                     severity="medium"
                 )
 

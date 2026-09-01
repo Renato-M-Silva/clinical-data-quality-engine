@@ -2,16 +2,19 @@
 Module: reconcile_entities
 Clinical Data Quality Engine (DQIE) – Module 5: Reconciliation
 
-This module reconciles entities across multiple data sources (CSV, SQL, OCR,
-JSON clinical reports). It resolves conflicts, determines authoritative values,
-and produces a unified reconciliation map for each clinical entity.
+This module performs entity-level reconciliation across multiple data sources:
+CSV, SQL, OCR text, OCR images, and JSON clinical reports.
+
+For each entity (patient, session, injury, clinical_report, ocr_report, ocr_image),
+the module compares values across sources, detects conflicts, and selects a
+"chosen_value" using a priority rule.
 
 Output:
-    A DataFrame containing reconciliation decisions:
-        - entity_type (patient, injury, session)
+    A DataFrame containing:
+        - entity_type
         - entity_id
         - field
-        - source_values (dict)
+        - source_values
         - chosen_value
         - reconciliation_status
         - severity
@@ -19,7 +22,6 @@ Output:
 """
 
 import pandas as pd
-from sqlalchemy import values
 
 
 # ----------------------------------------------------------------------
@@ -27,139 +29,302 @@ from sqlalchemy import values
 # ----------------------------------------------------------------------
 def _choose_value(values_dict):
     """
-    Decide which source value should prevail.
+    Selects the best value among multiple sources using a priority rule.
 
     Priority order:
         1. SQL (most structured)
         2. CSV (primary ingestion)
         3. JSON (clinical reports)
         4. OCR text
-        5. OCR image metadata
+        5. OCR image
 
-    If all values differ → mark as unresolved.
+    Returns
+    -------
+    chosen_value : any or None
     """
-
     priority = ["sql", "csv", "json", "ocr_text", "ocr_image"]
-
     for source in priority:
         if source in values_dict and pd.notna(values_dict[source]):
             return values_dict[source]
+    return None
 
-    return None  # unresolved
+
+# ----------------------------------------------------------------------
+# Helper: collect IDs from a dataframe
+# ----------------------------------------------------------------------
+def _collect_ids(df, id_col):
+    """
+    Extracts all unique IDs from a dataframe column.
+
+    Returns
+    -------
+    set
+    """
+    return set(df[id_col]) if df is not None and id_col in df.columns else set()
 
 
 # ----------------------------------------------------------------------
 # Main reconciliation function
 # ----------------------------------------------------------------------
 def reconcile_entities(
-    csv_data: pd.DataFrame,
-    sql_data: pd.DataFrame,
-    ocr_text: pd.DataFrame,
-    clinical_json: pd.DataFrame = None,
-    ocr_images: pd.DataFrame = None
-) -> pd.DataFrame:
-
+    csv_data,
+    sql_data,
+    ocr_text,
+    clinical_json=None,
+    ocr_images=None
+):
     """
-    Reconciles entities across multiple sources.
+    Performs entity-level reconciliation across all available sources.
 
-    Parameters
-    ----------
-    csv_data : pd.DataFrame
-    sql_data : pd.DataFrame
-    ocr_text : pd.DataFrame
-    clinical_json : pd.DataFrame, optional
-    ocr_images : pd.DataFrame, optional
-
-    Returns
-    -------
-    pd.DataFrame
-        Reconciliation map for all entities.
+    Entities reconciled:
+        - patient
+        - session
+        - injury
+        - clinical_report
+        - ocr_report
+        - ocr_image
     """
 
-    reconciliation_rows = []
+    rows = []
 
-    # ------------------------------------------------------------------
-    # Identify all unique sessions across sources
-    # ------------------------------------------------------------------
-    all_patient_ids = (
-        set(csv_data["patient_id"])
-        | set(sql_data["patient_id"])
-        | set(ocr_text["patient_id"])
+    # ==============================================================
+    # 1. PATIENTS
+    # ==============================================================
+
+    patient_ids = (
+        _collect_ids(csv_data, "patient_id")
+        | _collect_ids(sql_data, "patient_id")
+        | _collect_ids(ocr_text, "patient_id")
+        | _collect_ids(clinical_json, "patient_id")
+        | _collect_ids(ocr_images, "patient_id")
     )
 
-    if clinical_json is not None:
-        all_patient_ids |= set(clinical_json["patient_id"])
-
-    if ocr_images is not None and "patient_id" in ocr_images.columns:
-        all_patient_ids |= set(ocr_images["patient_id"])
-
-    # ------------------------------------------------------------------
-    # Reconcile each patient entity
-    # ------------------------------------------------------------------
-    for pid in sorted(all_patient_ids):
-
-        # Collect values from each source
+    for pid in sorted(patient_ids):
         values = {}
 
-        # CSV / SQL (sessions)
-        if pid in csv_data["patient_id"].values:
-            values["csv"] = csv_data[csv_data["patient_id"] == pid].iloc[0].to_dict()
+        # Collect patient rows from each source
+        for name, df in [
+            ("csv", csv_data),
+            ("sql", sql_data),
+            ("ocr_text", ocr_text),
+            ("json", clinical_json),
+            ("ocr_image", ocr_images),
+        ]:
+            if df is not None and "patient_id" in df.columns:
+                match = df[df["patient_id"] == pid]
+                if len(match) > 0:
+                    values[name] = match.iloc[0].to_dict()
 
-        if pid in sql_data["patient_id"].values:
-            values["sql"] = sql_data[sql_data["patient_id"] == pid].iloc[0].to_dict()
+        # Reconcile all fields for this patient
+        fields = set().union(*[v.keys() for v in values.values()])
+        for field in fields:
 
-        # OCR text
-        if pid in ocr_text["patient_id"].values:
-            values["ocr_text"] = ocr_text[ocr_text["patient_id"] == pid].iloc[0].to_dict()
+            src_vals = {src: d.get(field) for src, d in values.items()}
+            chosen = _choose_value(src_vals)
+            uniq = {v for v in src_vals.values() if pd.notna(v)}
 
-        # Clinical JSON
-        if clinical_json is not None and pid in clinical_json["patient_id"].values:
-            values["json"] = clinical_json[clinical_json["patient_id"] == pid].iloc[0].to_dict()
-
-        # OCR images
-        if ocr_images is not None and "patient_id" in ocr_images.columns:
-            if pid in ocr_images["patient_id"].values:
-                values["ocr_image"] = ocr_images[ocr_images["patient_id"] == pid].iloc[0].to_dict()
-
-        # ------------------------------------------------------------------
-        # Reconcile each field
-        # ------------------------------------------------------------------
-        all_fields = set()
-        for src_dict in values.values():
-            all_fields |= set(src_dict.keys())
-
-        for field in sorted(all_fields):
-
-            source_values = {src: src_dict.get(field) for src, src_dict in values.items()}
-            chosen_value = _choose_value(source_values)
-
-            unique_values = {v for v in source_values.values() if pd.notna(v)}
-
-            if len(unique_values) <= 1:
-                status = "consistent"
-                severity = "low"
-                notes = "All sources agree."
-            elif chosen_value is None:
-                status = "unresolved"
-                severity = "high"
-                notes = "Conflicting values; no authoritative source."
+            if len(uniq) <= 1:
+                status, sev, notes = "consistent", "low", "All sources agree."
+            elif chosen is None:
+                status, sev, notes = "unresolved", "high", "Conflicting values across sources."
             else:
-                status = "resolved"
-                severity = "medium"
-                notes = "Conflict resolved using authoritative source."
+                status, sev, notes = "resolved", "medium", "Conflict resolved using priority rule."
 
-            reconciliation_rows.append({
+            rows.append({
                 "entity_type": "patient",
                 "entity_id": pid,
                 "field": field,
-                "source_values": source_values,
-                "chosen_value": chosen_value,
+                "source_values": src_vals,
+                "chosen_value": chosen,
                 "reconciliation_status": status,
-                "severity": severity,
+                "severity": sev,
                 "notes": notes
             })
 
-    # ------------------------------------------------------------------
-    # Return reconciliation map
-    # ------------------------------------------------------------------
-    return pd.DataFrame(reconciliation_rows)
+    # ==============================================================
+    # 2. SESSIONS
+    # ==============================================================
+
+    session_ids = (
+        _collect_ids(csv_data, "session_id")
+        | _collect_ids(sql_data, "session_id")
+        | _collect_ids(ocr_text, "session_id")
+        | _collect_ids(clinical_json, "session_id")
+        | _collect_ids(ocr_images, "session_id")
+    )
+
+    for sid in sorted(session_ids):
+        values = {}
+
+        for name, df in [
+            ("csv", csv_data),
+            ("sql", sql_data),
+            ("ocr_text", ocr_text),
+            ("json", clinical_json),
+            ("ocr_image", ocr_images),
+        ]:
+            if df is not None and "session_id" in df.columns:
+                match = df[df["session_id"] == sid]
+                if len(match) > 0:
+                    values[name] = match.iloc[0].to_dict()
+
+        fields = set().union(*[v.keys() for v in values.values()])
+        for field in fields:
+
+            src_vals = {src: d.get(field) for src, d in values.items()}
+            chosen = _choose_value(src_vals)
+            uniq = {v for v in src_vals.values() if pd.notna(v)}
+
+            if len(uniq) <= 1:
+                status, sev, notes = "consistent", "low", "All sources agree."
+            elif chosen is None:
+                status, sev, notes = "unresolved", "high", "Conflicting values across sources."
+            else:
+                status, sev, notes = "resolved", "medium", "Conflict resolved using priority rule."
+
+            rows.append({
+                "entity_type": "session",
+                "entity_id": sid,
+                "field": field,
+                "source_values": src_vals,
+                "chosen_value": chosen,
+                "reconciliation_status": status,
+                "severity": sev,
+                "notes": notes
+            })
+
+    # ==============================================================
+    # 3. INJURIES
+    # ==============================================================
+
+    injury_ids = (
+        _collect_ids(csv_data, "injury_id")
+        | _collect_ids(sql_data, "injury_id")
+        | _collect_ids(ocr_text, "injury_id")
+        | _collect_ids(clinical_json, "injury_id")
+        | _collect_ids(ocr_images, "injury_id")
+    )
+
+    for iid in sorted(injury_ids):
+        values = {}
+
+        for name, df in [
+            ("csv", csv_data),
+            ("sql", sql_data),
+            ("ocr_text", ocr_text),
+            ("json", clinical_json),
+            ("ocr_image", ocr_images),
+        ]:
+            if df is not None and "injury_id" in df.columns:
+                match = df[df["injury_id"] == iid]
+                if len(match) > 0:
+                    values[name] = match.iloc[0].to_dict()
+
+        fields = set().union(*[v.keys() for v in values.values()])
+        for field in fields:
+
+            src_vals = {src: d.get(field) for src, d in values.items()}
+            chosen = _choose_value(src_vals)
+            uniq = {v for v in src_vals.values() if pd.notna(v)}
+
+            if len(uniq) <= 1:
+                status, sev, notes = "consistent", "low", "All sources agree."
+            elif chosen is None:
+                status, sev, notes = "unresolved", "high", "Conflicting values across sources."
+            else:
+                status, sev, notes = "resolved", "medium", "Conflict resolved using priority rule."
+
+            rows.append({
+                "entity_type": "injury",
+                "entity_id": iid,
+                "field": field,
+                "source_values": src_vals,
+                "chosen_value": chosen,
+                "reconciliation_status": status,
+                "severity": sev,
+                "notes": notes
+            })
+
+    # ==============================================================
+    # 4. CLINICAL REPORTS
+    # ==============================================================
+
+    if clinical_json is not None and "report_id" in clinical_json.columns:
+        report_ids = _collect_ids(clinical_json, "report_id")
+
+        for rid in sorted(report_ids):
+            values = {"json": clinical_json[clinical_json["report_id"] == rid].iloc[0].to_dict()}
+
+            fields = set(values["json"].keys())
+            for field in fields:
+                src_vals = {"json": values["json"].get(field)}
+                chosen = src_vals["json"]
+
+                rows.append({
+                    "entity_type": "clinical_report",
+                    "entity_id": rid,
+                    "field": field,
+                    "source_values": src_vals,
+                    "chosen_value": chosen,
+                    "reconciliation_status": "consistent",
+                    "severity": "low",
+                    "notes": "Single-source entity."
+                })
+
+    # ==============================================================
+    # 5. OCR REPORTS
+    # ==============================================================
+
+    if ocr_text is not None and "ocr_id" in ocr_text.columns:
+        ocr_ids = _collect_ids(ocr_text, "ocr_id")
+
+        for oid in sorted(ocr_ids):
+            values = {"ocr_text": ocr_text[ocr_text["ocr_id"] == oid].iloc[0].to_dict()}
+
+            fields = set(values["ocr_text"].keys())
+            for field in fields:
+                src_vals = {"ocr_text": values["ocr_text"].get(field)}
+                chosen = src_vals["ocr_text"]
+
+                rows.append({
+                    "entity_type": "ocr_report",
+                    "entity_id": oid,
+                    "field": field,
+                    "source_values": src_vals,
+                    "chosen_value": chosen,
+                    "reconciliation_status": "consistent",
+                    "severity": "low",
+                    "notes": "Single-source entity."
+                })
+
+    # ==============================================================
+    # 6. OCR IMAGES
+    # ==============================================================
+
+    if ocr_images is not None and "ocr_id" in ocr_images.columns:
+        ocr_img_ids = _collect_ids(ocr_images, "ocr_id")
+
+        for oid in sorted(ocr_img_ids):
+            values = {"ocr_image": ocr_images[ocr_images["ocr_id"] == oid].iloc[0].to_dict()}
+
+            fields = set(values["ocr_image"].keys())
+            for field in fields:
+                src_vals = {"ocr_image": values["ocr_image"].get(field)}
+                chosen = src_vals["ocr_image"]
+
+                rows.append({
+                    "entity_type": "ocr_image",
+                    "entity_id": oid,
+                    "field": field,
+                    "source_values": src_vals,
+                    "chosen_value": chosen,
+                    "reconciliation_status": "consistent",
+                    "severity": "low",
+                    "notes": "Single-source entity."
+                })
+
+    # ==============================================================
+    # Final output
+    # ==============================================================
+
+    return pd.DataFrame(rows)
