@@ -69,31 +69,29 @@ def reconcile_anomalies(
     ], ignore_index=True)
 
     # --------------------------------------------------------------
-    # 2. Ensure entity_type and entity_id exist
+    # 2. Validate required columns
     # --------------------------------------------------------------
-    if "entity_type" not in all_anomalies.columns:
-        all_anomalies["entity_type"] = "unknown"
+    required_cols = {"entity_type", "entity_id", "record_id", "field", "anomaly_type", "severity"}
+    missing = required_cols - set(all_anomalies.columns)
 
-    if "entity_id" not in all_anomalies.columns:
-        # fallback: use record_id if entity_id missing
-        all_anomalies["entity_id"] = all_anomalies["record_id"]
+    if missing:
+        raise ValueError(
+            f"Missing required anomaly columns: {missing}. "
+            "All detectors must output entity_type and entity_id explicitly."
+        )
 
     # --------------------------------------------------------------
-    # 3. Group anomalies by entity_type + entity_id
+    # 3. Group anomalies by entity
     # --------------------------------------------------------------
     grouped = all_anomalies.groupby(["entity_type", "entity_id"])
 
-    reconciliation_rows = []
+    rows = []
 
-    # --------------------------------------------------------------
-    # 4. Build reconciliation summary per entity
-    # --------------------------------------------------------------
     for (entity_type, entity_id), group in grouped:
 
         anomaly_types = sorted(group["anomaly_type"].unique())
         fields_affected = sorted(group["field"].unique())
         severity_values = group["severity"].map(SEVERITY_MAP)
-
         severity_score = severity_values.sum()
 
         # Determine severity level
@@ -107,7 +105,7 @@ def reconcile_anomalies(
             severity_level = "low-risk"
             notes = "Entity shows minor anomalies."
 
-        reconciliation_rows.append({
+        rows.append({
             "entity_type": entity_type,
             "entity_id": entity_id,
             "anomalies_count": len(group),
@@ -119,4 +117,5 @@ def reconcile_anomalies(
             "notes": notes
         })
 
-    return pd.DataFrame(reconciliation_rows)
+    return pd.DataFrame(rows)
+
