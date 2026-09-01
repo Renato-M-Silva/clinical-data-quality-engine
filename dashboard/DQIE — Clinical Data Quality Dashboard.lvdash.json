@@ -1,0 +1,1251 @@
+{
+  "datasets": [
+    {
+      "name": "severity_distribution",
+      "displayName": "Severity Distribution",
+      "queryLines": [
+        "SELECT\n",
+        "  severity_level,\n",
+        "  count\n",
+        "FROM\n",
+        "  `projecto-clinical-data-quality-engine`.gold.severity_distribution\n",
+        "ORDER BY\n",
+        "  CASE severity_level\n",
+        "    WHEN 'low-risk' THEN 1\n",
+        "    WHEN 'medium-risk' THEN 2\n",
+        "    WHEN 'high-risk' THEN 3\n",
+        "  END"
+      ]
+    },
+    {
+      "name": "source_type_comparison",
+      "displayName": "Source Type Comparison",
+      "queryLines": [
+        "SELECT\n",
+        "  CASE\n",
+        "    WHEN sources_involved LIKE '%,%' THEN 'Multi-source'\n",
+        "    WHEN\n",
+        "      sources_involved IS NOT NULL\n",
+        "      AND sources_involved != ''\n",
+        "    THEN\n",
+        "      'Single-source'\n",
+        "    ELSE 'Unknown'\n",
+        "  END as source_type,\n",
+        "  COUNT(*) as count\n",
+        "FROM\n",
+        "  `projecto-clinical-data-quality-engine`.gold.entity_scores\n",
+        "WHERE\n",
+        "  sources_involved IS NOT NULL\n",
+        "GROUP BY\n",
+        "  source_type"
+      ]
+    },
+    {
+      "name": "severity_level_count",
+      "displayName": "Severity Level Count",
+      "queryLines": [
+        "SELECT\n",
+        "  severity_level,\n",
+        "  COUNT(*) as count\n",
+        "FROM\n",
+        "  `projecto-clinical-data-quality-engine`.gold.entity_scores\n",
+        "GROUP BY\n",
+        "  severity_level\n",
+        "ORDER BY\n",
+        "  CASE severity_level\n",
+        "    WHEN 'low-risk' THEN 1\n",
+        "    WHEN 'medium-risk' THEN 2\n",
+        "    WHEN 'high-risk' THEN 3\n",
+        "  END"
+      ]
+    },
+    {
+      "name": "entities_multi_source",
+      "displayName": "Entities with Multiple Sources",
+      "queryLines": [
+        "SELECT\n",
+        "  entity_type,\n",
+        "  entity_id,\n",
+        "  dqi_score,\n",
+        "  severity_level,\n",
+        "  sources_involved\n",
+        "FROM\n",
+        "  `projecto-clinical-data-quality-engine`.gold.entity_scores\n",
+        "WHERE\n",
+        "  sources_involved LIKE '%,%'\n",
+        "ORDER BY\n",
+        "  dqi_score DESC"
+      ]
+    },
+    {
+      "name": "score_by_entity_type",
+      "displayName": "Score by Entity Type",
+      "queryLines": [
+        "SELECT\n",
+        "  entity_type,\n",
+        "  avg_score\n",
+        "FROM\n",
+        "  `projecto-clinical-data-quality-engine`.gold.score_by_entity_type\n",
+        "ORDER BY\n",
+        "  avg_score DESC"
+      ]
+    },
+    {
+      "name": "entity_type_contribution",
+      "displayName": "Entity Type Contribution",
+      "queryLines": [
+        "SELECT\n",
+        "  entity_type,\n",
+        "  weighted_score\n",
+        "FROM\n",
+        "  `projecto-clinical-data-quality-engine`.gold.entity_type_contribution\n",
+        "ORDER BY\n",
+        "  weighted_score DESC"
+      ]
+    },
+    {
+      "name": "entity_scores_full",
+      "displayName": "Entity Scores Full",
+      "queryLines": [
+        "SELECT\n",
+        "  entity_type,\n",
+        "  entity_id,\n",
+        "  dqi_score,\n",
+        "  dqi_label,\n",
+        "  severity_level,\n",
+        "  anomalies_count,\n",
+        "  sources_involved\n",
+        "FROM\n",
+        "  `projecto-clinical-data-quality-engine`.gold.entity_scores\n",
+        "ORDER BY\n",
+        "  dqi_score DESC"
+      ]
+    },
+    {
+      "name": "dataset_score_full",
+      "displayName": "Dataset Score Full",
+      "queryLines": [
+        "SELECT\n",
+        "  global_score,\n",
+        "  global_label,\n",
+        "  weighted_global_score,\n",
+        "  weighted_global_label,\n",
+        "  anomaly_density,\n",
+        "  percentage_multi_source,\n",
+        "  multi_source_entities\n",
+        "FROM\n",
+        "  `projecto-clinical-data-quality-engine`.gold.dataset_score"
+      ]
+    },
+    {
+      "name": "severity_low_risk",
+      "displayName": "Low Risk Count",
+      "queryLines": [
+        "SELECT\n",
+        "  count\n",
+        "FROM\n",
+        "  `projecto-clinical-data-quality-engine`.gold.severity_distribution\n",
+        "WHERE\n",
+        "  severity_level = 'low-risk'"
+      ]
+    },
+    {
+      "name": "severity_high_risk",
+      "displayName": "High Risk Count",
+      "queryLines": [
+        "SELECT\n",
+        "  count\n",
+        "FROM\n",
+        "  `projecto-clinical-data-quality-engine`.gold.severity_distribution\n",
+        "WHERE\n",
+        "  severity_level = 'high-risk'"
+      ]
+    },
+    {
+      "name": "severity_medium_risk",
+      "displayName": "Medium Risk Count",
+      "queryLines": [
+        "SELECT\n",
+        "  count\n",
+        "FROM\n",
+        "  `projecto-clinical-data-quality-engine`.gold.severity_distribution\n",
+        "WHERE\n",
+        "  severity_level = 'medium-risk'"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "463f91c7",
+      "displayName": "DQI Overview",
+      "layout": [
+        {
+          "widget": {
+            "name": "kpi_global_score",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "dataset_score_full",
+                  "fields": [
+                    {
+                      "name": "global_score",
+                      "expression": "`global_score`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Global DQI Score"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "global_score"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 4,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_global_label",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "dataset_score_full",
+                  "fields": [
+                    {
+                      "name": "global_label",
+                      "expression": "`global_label`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Global DQI Label"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "global_label"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 4,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_weighted_score",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "dataset_score_full",
+                  "fields": [
+                    {
+                      "name": "weighted_global_score",
+                      "expression": "`weighted_global_score`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Weighted Global Score"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "weighted_global_score"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 0,
+            "width": 4,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_weighted_label",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "dataset_score_full",
+                  "fields": [
+                    {
+                      "name": "weighted_global_label",
+                      "expression": "`weighted_global_label`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Weighted Global Label"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "weighted_global_label"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 4,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_anomaly_density",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "dataset_score_full",
+                  "fields": [
+                    {
+                      "name": "anomaly_density",
+                      "expression": "`anomaly_density`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Anomaly Density"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "anomaly_density"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 3,
+            "width": 4,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_multi_source_pct",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "dataset_score_full",
+                  "fields": [
+                    {
+                      "name": "percentage_multi_source",
+                      "expression": "`percentage_multi_source`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Multi-source Reliability (%)"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "percentage_multi_source"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 3,
+            "width": 4,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "chart_score_by_entity",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "score_by_entity_type",
+                  "fields": [
+                    {
+                      "name": "entity_type",
+                      "expression": "`entity_type`"
+                    },
+                    {
+                      "name": "avg_score",
+                      "expression": "`avg_score`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Score by Entity Type"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "entity_type",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "avg_score",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "chart_entity_contribution",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "entity_type_contribution",
+                  "fields": [
+                    {
+                      "name": "entity_type",
+                      "expression": "`entity_type`"
+                    },
+                    {
+                      "name": "weighted_score",
+                      "expression": "`weighted_score`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Entity-Type Contribution"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "entity_type",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "weighted_score",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 6,
+            "width": 6,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "entity_level",
+      "displayName": "Entity-Level Scores",
+      "layout": [
+        {
+          "widget": {
+            "name": "table_entity_scores",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "entity_scores_full",
+                  "fields": [
+                    {
+                      "name": "entity_type",
+                      "expression": "`entity_type`"
+                    },
+                    {
+                      "name": "entity_id",
+                      "expression": "`entity_id`"
+                    },
+                    {
+                      "name": "dqi_score",
+                      "expression": "`dqi_score`"
+                    },
+                    {
+                      "name": "dqi_label",
+                      "expression": "`dqi_label`"
+                    },
+                    {
+                      "name": "severity_level",
+                      "expression": "`severity_level`"
+                    },
+                    {
+                      "name": "anomalies_count",
+                      "expression": "`anomalies_count`"
+                    },
+                    {
+                      "name": "sources_involved",
+                      "expression": "`sources_involved`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Entity Scores"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "entity_type"
+                  },
+                  {
+                    "fieldName": "entity_id"
+                  },
+                  {
+                    "fieldName": "dqi_score"
+                  },
+                  {
+                    "fieldName": "dqi_label"
+                  },
+                  {
+                    "fieldName": "severity_level"
+                  },
+                  {
+                    "fieldName": "anomalies_count"
+                  },
+                  {
+                    "fieldName": "sources_involved"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "chart_severity_count",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "severity_level_count",
+                  "fields": [
+                    {
+                      "name": "severity_level",
+                      "expression": "`severity_level`"
+                    },
+                    {
+                      "name": "count",
+                      "expression": "`count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Severity Level Count"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "severity_level",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "count",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 8,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "hist_dqi_distribution",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "entity_scores_full",
+                  "fields": [
+                    {
+                      "name": "dqi_score",
+                      "expression": "`dqi_score`"
+                    },
+                    {
+                      "name": "count(*)",
+                      "expression": "COUNT(`*`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "DQI Score Distribution"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "dqi_score",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "count(*)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 8,
+            "width": 6,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "severity_analysis",
+      "displayName": "Severity Analysis",
+      "layout": [
+        {
+          "widget": {
+            "name": "kpi_low_risk",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "severity_low_risk",
+                  "fields": [
+                    {
+                      "name": "count",
+                      "expression": "`count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Total Low-Risk"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 4,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_medium_risk",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "severity_medium_risk",
+                  "fields": [
+                    {
+                      "name": "count",
+                      "expression": "`count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Total Medium-Risk"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 4,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_high_risk",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "severity_high_risk",
+                  "fields": [
+                    {
+                      "name": "count",
+                      "expression": "`count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Total High-Risk"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 0,
+            "width": 4,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "bar_severity_dist",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "severity_distribution",
+                  "fields": [
+                    {
+                      "name": "severity_level",
+                      "expression": "`severity_level`"
+                    },
+                    {
+                      "name": "count",
+                      "expression": "`count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Severity Level vs Count"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "severity_level",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "count",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 6,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "pie_severity_dist",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "severity_distribution",
+                  "fields": [
+                    {
+                      "name": "count",
+                      "expression": "`count`"
+                    },
+                    {
+                      "name": "severity_level",
+                      "expression": "`severity_level`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Severity Distribution"
+              },
+              "version": 3,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "count",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "severity_level",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 3,
+            "width": 6,
+            "height": 8
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    },
+    {
+      "name": "source_reliability",
+      "displayName": "Source Reliability",
+      "layout": [
+        {
+          "widget": {
+            "name": "kpi_pct_multi_source",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "dataset_score_full",
+                  "fields": [
+                    {
+                      "name": "percentage_multi_source",
+                      "expression": "`percentage_multi_source`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Percentage Multi-Source"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "percentage_multi_source"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_multi_source_count",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "dataset_score_full",
+                  "fields": [
+                    {
+                      "name": "multi_source_entities",
+                      "expression": "`multi_source_entities`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Multi-Source Entities Count"
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "multi_source_entities"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 0,
+            "width": 6,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "table_multi_source",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "entities_multi_source",
+                  "fields": [
+                    {
+                      "name": "entity_type",
+                      "expression": "`entity_type`"
+                    },
+                    {
+                      "name": "entity_id",
+                      "expression": "`entity_id`"
+                    },
+                    {
+                      "name": "dqi_score",
+                      "expression": "`dqi_score`"
+                    },
+                    {
+                      "name": "severity_level",
+                      "expression": "`severity_level`"
+                    },
+                    {
+                      "name": "sources_involved",
+                      "expression": "`sources_involved`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Entities with Multiple Sources"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "entity_type"
+                  },
+                  {
+                    "fieldName": "entity_id"
+                  },
+                  {
+                    "fieldName": "dqi_score"
+                  },
+                  {
+                    "fieldName": "severity_level"
+                  },
+                  {
+                    "fieldName": "sources_involved"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 8,
+            "height": 9
+          }
+        },
+        {
+          "widget": {
+            "name": "chart_source_comparison",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "source_type_comparison",
+                  "fields": [
+                    {
+                      "name": "source_type",
+                      "expression": "`source_type`"
+                    },
+                    {
+                      "name": "count",
+                      "expression": "`count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Multi-Source vs Single-Source"
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "source_type",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "count",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 3,
+            "width": 4,
+            "height": 9
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "visualizationColors": [
+        "#1F77B4",
+        "#2CA02C",
+        "#FF7F0E",
+        "#D62728",
+        "#7F7F7F"
+      ],
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED",
+      "visualizationColorMappings": [
+        {
+          "value": "low-risk",
+          "color": "#2CA02C"
+        },
+        {
+          "value": "medium-risk",
+          "color": "#FF7F0E"
+        },
+        {
+          "value": "high-risk",
+          "color": "#D62728"
+        },
+        {
+          "value": "Multi-source",
+          "color": "#1F77B4"
+        },
+        {
+          "value": "Single-source",
+          "color": "#7F7F7F"
+        }
+      ]
+    },
+    "applyModeEnabled": false
+  }
+}
