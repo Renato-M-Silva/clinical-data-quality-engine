@@ -9,6 +9,8 @@ and unrealistic clinical progression.
 Output:
     A DataFrame containing all detected anomalies with:
         - record_id
+        - entity_type
+        - entity_id
         - field
         - value
         - anomaly_type
@@ -23,9 +25,35 @@ import numpy as np
 # ----------------------------------------------------------------------
 # Helper: register anomaly
 # ----------------------------------------------------------------------
-def _add_anomaly(anomalies, record_id, field, value, anomaly_type, description, severity="high"):
+def _add_anomaly(
+    anomalies,
+    record_id,
+    entity_type,
+    entity_id,
+    field,
+    value,
+    anomaly_type,
+    description,
+    severity="high"
+):
+    """
+    Registers a temporal anomaly entry.
+
+    Parameters
+    ----------
+    record_id : identifier of the record where the anomaly occurred
+    entity_type : clinical entity type (session, patient, injury, report)
+    entity_id : identifier of the affected entity
+    field : field where the anomaly was detected
+    value : problematic value
+    anomaly_type : category of anomaly
+    description : human-readable explanation
+    severity : low / medium / high
+    """
     anomalies.append({
         "record_id": record_id,
+        "entity_type": entity_type,
+        "entity_id": entity_id,
         "field": field,
         "value": value,
         "anomaly_type": anomaly_type,
@@ -38,6 +66,17 @@ def _add_anomaly(anomalies, record_id, field, value, anomaly_type, description, 
 # Main function: detect temporal anomalies
 # ----------------------------------------------------------------------
 def detect_temporal_anomalies(patients, injuries, sessions, clinical_reports=None):
+    """
+    Detects temporal anomalies across patients, injuries, sessions,
+    and clinical reports.
+
+    Entity type assignment follows the origin dataframe:
+        - sessions          → entity_type = "session"
+        - clinical_reports  → entity_type = "report"
+        - patients          → entity_type = "patient"
+        - injuries          → entity_type = "injury" (if needed)
+    """
+
     anomalies = []
 
     # --------------------------------------------------------------
@@ -52,11 +91,13 @@ def detect_temporal_anomalies(patients, injuries, sessions, clinical_reports=Non
     for idx, row in invalid.iterrows():
         _add_anomaly(
             anomalies,
-            row["session_id"],
-            "session_date",
-            row["session_date"],
-            "inverted_dates",
-            "Session occurs before patient start_date."
+            record_id=row["session_id"],
+            entity_type="session",
+            entity_id=row["session_id"],
+            field="session_date",
+            value=row["session_date"],
+            anomaly_type="inverted_dates",
+            description="Session occurs before patient start_date."
         )
 
     # --------------------------------------------------------------
@@ -71,11 +112,13 @@ def detect_temporal_anomalies(patients, injuries, sessions, clinical_reports=Non
     for idx, row in invalid.iterrows():
         _add_anomaly(
             anomalies,
-            row["session_id"],
-            "session_date",
-            row["session_date"],
-            "out_of_range",
-            "Session occurs after patient end_date."
+            record_id=row["session_id"],
+            entity_type="session",
+            entity_id=row["session_id"],
+            field="session_date",
+            value=row["session_date"],
+            anomaly_type="out_of_range",
+            description="Session occurs after patient end_date."
         )
 
     # --------------------------------------------------------------
@@ -89,22 +132,26 @@ def detect_temporal_anomalies(patients, injuries, sessions, clinical_reports=Non
     for idx, row in pain_jump.iterrows():
         _add_anomaly(
             anomalies,
-            row["session_id"],
-            "pain_final",
-            row["pain_final"],
-            "impossible_progression",
-            "Pain jump > 5 between sessions."
+            record_id=row["session_id"],
+            entity_type="session",
+            entity_id=row["session_id"],
+            field="pain_final",
+            value=row["pain_final"],
+            anomaly_type="impossible_progression",
+            description="Pain jump > 5 between sessions."
         )
 
     mob_jump = s[s["mobility_diff"].abs() > 30]
     for idx, row in mob_jump.iterrows():
         _add_anomaly(
             anomalies,
-            row["session_id"],
-            "mobility_final",
-            row["mobility_final"],
-            "impossible_progression",
-            "Mobility jump > 30 between sessions."
+            record_id=row["session_id"],
+            entity_type="session",
+            entity_id=row["session_id"],
+            field="mobility_final",
+            value=row["mobility_final"],
+            anomaly_type="impossible_progression",
+            description="Mobility jump > 30 between sessions."
         )
 
     # --------------------------------------------------------------
@@ -120,11 +167,13 @@ def detect_temporal_anomalies(patients, injuries, sessions, clinical_reports=Non
         for idx, row in invalid.iterrows():
             _add_anomaly(
                 anomalies,
-                row["report_id"],
-                "report_date",
-                row["report_date"],
-                "inverted_dates",
-                "Clinical report occurs before patient start_date."
+                record_id=row["report_id"],
+                entity_type="report",
+                entity_id=row["report_id"],
+                field="report_date",
+                value=row["report_date"],
+                anomaly_type="inverted_dates",
+                description="Clinical report occurs before patient start_date."
             )
 
     # --------------------------------------------------------------
@@ -140,11 +189,13 @@ def detect_temporal_anomalies(patients, injuries, sessions, clinical_reports=Non
         for idx, row in invalid.iterrows():
             _add_anomaly(
                 anomalies,
-                row["report_id"],
-                "report_date",
-                row["report_date"],
-                "out_of_range",
-                "Clinical report occurs after patient end_date."
+                record_id=row["report_id"],
+                entity_type="report",
+                entity_id=row["report_id"],
+                field="report_date",
+                value=row["report_date"],
+                anomaly_type="out_of_range",
+                description="Clinical report occurs after patient end_date."
             )
 
     return pd.DataFrame(anomalies)

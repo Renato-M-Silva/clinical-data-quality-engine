@@ -45,45 +45,49 @@ def run_reconciliation_pipeline(
     ocr_images: pd.DataFrame = None
 ) -> dict:
     """
-    Runs the full reconciliation pipeline.
+    Executes the full reconciliation workflow.
 
-    Parameters
-    ----------
-    patients : pd.DataFrame
-    injuries : pd.DataFrame
-    sessions : pd.DataFrame
-    csv_data : pd.DataFrame
-    sql_data : pd.DataFrame
-    ocr_text : pd.DataFrame
-    clinical_json : pd.DataFrame, optional
-    ocr_images : pd.DataFrame, optional
-
-    Returns
-    -------
-    dict
-        Full reconciliation report.
+    Steps:
+        1. Run anomaly detectors (Module 4)
+        2. Consolidate anomalies (Module 5)
+        3. Reconcile entity-level conflicts (Module 5)
+        4. Produce unified reconciliation report
     """
 
     print("=== DQIE Reconciliation Engine ===")
     print("Step 1: Running anomaly detectors...")
 
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
     # 1. Run anomaly detectors (Module 4)
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
+
+    # Value anomalies (sessions only)
     value_anomalies = detect_value_anomalies(sessions)
+
+    # Relational anomalies (patients, injuries, sessions, reports)
     relational_anomalies = detect_relational_anomalies(
-        patients,
-        injuries,
-        sessions,
-        clinical_reports=None,
-        ocr_reports=None
+        patients=patients,
+        injuries=injuries,
+        sessions=sessions,
+        clinical_reports=clinical_json,
+        ocr_reports=ocr_text
     )
 
+    # Temporal anomalies (sessions, patients, reports)
     temporal_anomalies = detect_temporal_anomalies(
-        patients, injuries, sessions, clinical_json
+        patients=patients,
+        injuries=injuries,
+        sessions=sessions,
+        clinical_reports=clinical_json
     )
+
+    # Source anomalies (CSV, SQL, OCR, JSON)
     source_anomalies = detect_source_anomalies(
-        csv_data, sql_data, ocr_text, ocr_images, clinical_json
+        csv_data=csv_data,
+        sql_data=sql_data,
+        ocr_text=ocr_text,
+        ocr_images=ocr_images,
+        clinical_json=clinical_json
     )
 
     print(f"  - Value anomalies: {len(value_anomalies)}")
@@ -93,21 +97,9 @@ def run_reconciliation_pipeline(
 
     print("Step 2: Consolidating anomalies...")
 
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
     # 2. Consolidate anomalies (Module 5)
-    # ------------------------------------------------------------------
-    # Normalize source anomalies to include record_id
-    if "record_id" not in source_anomalies.columns:
-        source_anomalies["record_id"] = source_anomalies.apply(
-            lambda row: (
-                row.get("session_id")
-                or row.get("ocr_id")
-                or row.get("report_id")
-                or row.get("patient_id")
-                or "SRC_UNKNOWN"
-            ),
-            axis=1
-        )
+    # --------------------------------------------------------------
 
     anomalies_summary = reconcile_anomalies(
         value_anomalies=value_anomalies,
@@ -120,9 +112,10 @@ def run_reconciliation_pipeline(
 
     print("Step 3: Reconciling entity-level conflicts...")
 
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
     # 3. Reconcile entities (Module 5)
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
+
     entities_reconciliation = reconcile_entities(
         csv_data=csv_data,
         sql_data=sql_data,
@@ -135,9 +128,10 @@ def run_reconciliation_pipeline(
 
     print("Step 4: Building final reconciliation report...")
 
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
     # 4. Build final report
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
+
     report = {
         "value_anomalies": value_anomalies,
         "relational_anomalies": relational_anomalies,

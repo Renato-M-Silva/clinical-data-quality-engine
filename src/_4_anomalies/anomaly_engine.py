@@ -25,9 +25,15 @@ def run_anomaly_pipeline(
 ):
     print("=== Running Anomaly Detection Pipeline ===")
 
+    # --------------------------------------------------------------
+    # 1. Value anomalies (sessions)
+    # --------------------------------------------------------------
     value_anomalies = detect_value_anomalies(sessions)
     print(f"Value anomalies: {len(value_anomalies)}")
 
+    # --------------------------------------------------------------
+    # 2. Temporal anomalies (patients, sessions, reports)
+    # --------------------------------------------------------------
     temporal_anomalies = detect_temporal_anomalies(
         patients=patients,
         injuries=injuries,
@@ -36,16 +42,21 @@ def run_anomaly_pipeline(
     )
     print(f"Temporal anomalies: {len(temporal_anomalies)}")
 
+    # --------------------------------------------------------------
+    # 3. Relational anomalies (patients, injuries, sessions, reports)
+    # --------------------------------------------------------------
     relational_anomalies = detect_relational_anomalies(
         patients=patients,
         injuries=injuries,
         sessions=sessions,
         clinical_reports=clinical,
-        ocr_reports=ocr_json,
-        sql_tables=None
+        ocr_reports=ocr_json
     )
     print(f"Relational anomalies: {len(relational_anomalies)}")
 
+    # --------------------------------------------------------------
+    # 4. Source anomalies (CSV, SQL, OCR, JSON)
+    # --------------------------------------------------------------
     source_anomalies = detect_source_anomalies(
         csv_data=sessions,
         sql_data=sessions,
