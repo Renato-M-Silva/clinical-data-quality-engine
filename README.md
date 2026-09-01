@@ -25,6 +25,23 @@ The **Clinical Data Quality & Integrity Engine** automates the end-to-end workfl
 ✅ **Modular Pipeline**: Run full pipeline or individual stages independently  
 ✅ **Comprehensive Validation**: Schema, business rules, relationships, and OCR-specific checks  
 ✅ **Jupyter Notebook Integration**: Interactive exploration and notebook-based execution  
+✅ **Databricks Dashboard**: Published visualization with real-time data quality metrics  
+
+---
+
+## 📊 Live Dashboard
+
+Explore real-time data quality metrics on our **Databricks Dashboard**:
+
+🔗 **[View Live Dashboard](https://dbc-3007abf3-adde.cloud.databricks.com/dashboardsv3/01f1a61732931cfb8662629dfdf82d80/published?o=7474654066959802)**
+
+The dashboard displays:
+- **Global Data Quality Index (DQI)** — Overall dataset quality score
+- **Anomaly Density** — Percentage and distribution of detected issues
+- **Entity-Level Scores** — Quality breakdown by patient, injury, session, and report types
+- **Severity Distribution** — Categorization of anomalies by severity level
+- **Source Reliability** — Confidence metrics for multi-source reconciliation
+- **Quality Trends** — Historical performance tracking
 
 ---
 
@@ -35,6 +52,7 @@ The **Clinical Data Quality & Integrity Engine** automates the end-to-end workfl
 - **Framework**: Pandas, SQLAlchemy
 - **Computer Vision**: EasyOCR, OpenCV, PyTorch, scikit-image, Pillow
 - **Data Processing**: NumPy, Shapely, NetworkX, SciPy
+- **Visualization & Analytics**: Databricks, Parquet
 
 ### Project Structure
 
@@ -91,6 +109,9 @@ clinical-data-quality-engine/
 │       ├── scoring/
 │       └── dashboard/
 │
+├── Databricks/                       # Databricks workspace configuration
+│   └── [Dashboard notebooks & SQL queries]
+│
 ├── notebooks/                        # Jupyter analysis & execution notebooks
 │   ├── 01_ingestion_validation.ipynb
 │   ├── 02_schema_validation.ipynb
@@ -118,6 +139,8 @@ Gold Layer (Business-Ready)
     ├── /reconciliation (cross-source matches)
     ├── /scoring        (DQI results)
     └── /dashboard      (visualization-ready)
+         ↓
+    📊 Databricks Dashboard (Published)
 ```
 
 ---
@@ -172,6 +195,20 @@ jupyter notebook notebooks/01_ingestion_validation.ipynb
 jupyter notebook notebooks/02_schema_validation.ipynb
 jupyter notebook notebooks/03_anomaly_detection.ipynb
 # ... and so on
+```
+
+### Connect to Databricks
+
+To publish your own results to a Databricks dashboard:
+
+1. Set up Databricks workspace credentials
+2. Export Gold Layer parquet files to Databricks
+3. Create SQL queries against the tables
+4. Build visualizations in Databricks Dashboards
+
+```bash
+# Example: Upload results to Databricks
+databricks workspace export-dir data/_3_gold/ /Workspace/dqie-results/
 ```
 
 ---
@@ -280,6 +317,10 @@ OCR_MODEL=easyocr          # OCR model type
 DATABASE_URL=...           # SQL connection string
 DATA_PATH=data/            # Root data directory
 ANOMALY_THRESHOLD=0.05     # Anomaly detection sensitivity
+
+# Databricks (for dashboard publishing)
+DATABRICKS_HOST=...        # Databricks workspace URL
+DATABRICKS_TOKEN=...       # Personal access token
 ```
 
 ---
@@ -319,9 +360,10 @@ Contributions are welcome! Areas for enhancement:
 
 - Additional anomaly detection algorithms
 - Real dataset adapters (EHR systems)
-- Dashboard UI implementation
+- Dashboard UI enhancements
 - Performance optimizations for large datasets
 - Automated testing & CI/CD
+- Multi-language support
 
 Please submit issues and pull requests.
 
@@ -349,11 +391,13 @@ MIT License — See [LICENSE](LICENSE) file for details.
 | Run anomaly detection only | `python src/main.py --stage anomalies` |
 | Explore data interactively | `jupyter notebook notebooks/` |
 | Install dependencies | `pip install -r requirements.txt` |
+| View dashboard | [Published Databricks Link](https://dbc-3007abf3-adde.cloud.databricks.com/dashboardsv3/01f1a61732931cfb8662629dfdf82d80/published?o=7474654066959802) |
 
 ---
 
 **Last Updated**: September 2026  
-**Status**: Active Development
+**Status**: Active Development  
+**Dashboard**: 🟢 Live & Published
 
 ---
 
